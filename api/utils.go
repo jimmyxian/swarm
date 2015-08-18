@@ -21,17 +21,39 @@ func httpError(w http.ResponseWriter, err string, status int) {
 	http.Error(w, err, status)
 }
 
-func sendJSONMessage(w io.Writer, id, status string) {
-	message := struct {
-		ID       string      `json:"id,omitempty"`
-		Status   string      `json:"status,omitempty"`
-		Progress interface{} `json:"progressDetail,omitempty"`
-	}{
-		id,
-		status,
-		struct{}{}, // this is required by the docker cli to have a proper display
+type JSONError struct {
+	Code    int    `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+func sendJSONMessage(w io.Writer, id, status string, err error) {
+	if err != nil {
+		errmsg := JSONError{
+			Code:    1, // FIXME
+			Message: err.Error(),
+		}
+		message := struct {
+			ID    string     `json:"id,omitempty"`
+			Error *JSONError `json:"errorDetail,omitempty"`
+		}{
+			id,
+			&errmsg,
+		}
+
+		json.NewEncoder(w).Encode(message)
+
+	} else {
+		message := struct {
+			ID       string      `json:"id,omitempty"`
+			Status   string      `json:"status,omitempty"`
+			Progress interface{} `json:"progressDetail,omitempty"`
+		}{
+			id,
+			status,
+			struct{}{}, // this is required by the docker cli to have a proper display
+		}
+		json.NewEncoder(w).Encode(message)
 	}
-	json.NewEncoder(w).Encode(message)
 }
 
 func newClientAndScheme(tlsConfig *tls.Config) (*http.Client, string) {
